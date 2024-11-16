@@ -4,7 +4,10 @@ namespace BaseDto;
 
 class Test extends BaseDto
 {
-    protected $id;
+    protected int $id;
     #[Serialize('surname')]
-    protected $name;
+    protected string $name;
+
+    #[Serialize('test1')]
+    protected Test123 $variable1;
 }

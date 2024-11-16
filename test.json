@@ -1,4 +1,8 @@
 {
-  "id": 123,
-  "surname": "alex"
+  "user-account": 123,
+  "nonce": "alex",
+  "test1": {
+    "a": 1,
+    "bool": "bool"
+  }
 }
