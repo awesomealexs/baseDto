@@ -6,7 +6,8 @@ use JsonSerializable;
 
 abstract class BaseDto implements JsonSerializable
 {
-    public function __construct(){
+    public function __construct()
+    {
         $this->recursiveBaseInit();
     }
 
@@ -14,7 +15,7 @@ abstract class BaseDto implements JsonSerializable
     {
         $fieldsMap = $this->getFieldsMap();
         foreach ($fieldsMap as $field) {
-            if(!$this->isScalarType($field['type'])){
+            if (!$this->isScalarType($field['type'])) {
                 $this->{$field['name']} = new $field['type']();
                 $this->{$field['name']}->recursiveBaseInit();
             }

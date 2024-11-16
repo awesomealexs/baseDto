@@ -38,7 +38,7 @@ class Generator
 
     protected function generateClass(array $properties, string $directoryPath, string $namespace, string $className, string $destinationFilePath): void
     {
-        if(!is_dir($directoryPath)) {
+        if (!is_dir($directoryPath)) {
             mkdir($directoryPath, 0644);
         }
         $gettersSetters = [];
@@ -48,10 +48,10 @@ class Generator
         foreach ($properties as $propertyKey => $propertyData) {
             $notScalar = false;
             $type = $propertyData['type'];
-            if(!$this->isScalarType($propertyData['type'])) {
+            if (!$this->isScalarType($propertyData['type'])) {
                 $subClassName = $propertyKey;
                 $subClassNamespace = sprintf('%s\%s', $namespace, $className);
-                $subClassDirectoryPath = $directoryPath.DIRECTORY_SEPARATOR.$className;
+                $subClassDirectoryPath = $directoryPath . DIRECTORY_SEPARATOR . $className;
                 $subClassDestinationFilePath = $subClassDirectoryPath . DIRECTORY_SEPARATOR . $subClassName . '.php';
                 $uses[] = sprintf('use %s\%s;', $subClassNamespace, $subClassName);
                 $this->generateClass($propertyData['properties'], $subClassDirectoryPath, $subClassNamespace, $subClassName, $subClassDestinationFilePath);
