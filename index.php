@@ -10,12 +10,14 @@ use BaseDto\Generator;
 //die;
 $instance = new \BaseDto\Gen\InitRequest();
 
-$data = json_decode(file_get_contents(__DIR__.'/test.json'), true);
+$data = json_decode(file_get_contents(__DIR__ . '/test.json'), true);
 
 $instance->fromArray($data);
 
 $instance->setAccount('asd123')
     ->setSignature('asdasdsa');
+
+//$instance->getTest1()->setValue1('123123123123');
 
 var_dump($instance);
 var_dump(json_encode($instance));

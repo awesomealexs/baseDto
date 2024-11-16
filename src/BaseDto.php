@@ -6,18 +6,38 @@ use JsonSerializable;
 
 abstract class BaseDto implements JsonSerializable
 {
+    public function __construct(){
+        $this->recursiveBaseInit();
+    }
+
+    private function recursiveBaseInit(): void
+    {
+        $fieldsMap = $this->getFieldsMap();
+        foreach ($fieldsMap as $field) {
+            if(!$this->isScalarType($field['type'])){
+                $this->{$field['name']} = new $field['type']();
+                $this->{$field['name']}->recursiveBaseInit();
+            }
+        }
+    }
+
+    private function isScalarType(string $type): bool
+    {
+        return in_array($type, ['string', 'int', 'float', 'bool']);
+    }
+
     public function fromArray(array $data): void
     {
         $fieldsMap = $this->getFieldsMap();
         foreach ($data as $key => $value) {
             foreach ($fieldsMap as $fieldItem) {
-                if ($this->isScalar($value)) {
+                if ($this->isScalarValue($value)) {
                     if ($fieldItem['serialize'] === $key) {
                         $this->{$fieldItem['name']} = $value;
                         break;
                     }
                 } else {
-                    if($fieldItem['serialize'] === $key){
+                    if ($fieldItem['serialize'] === $key) {
                         $subClass = new $fieldItem['type']();
                         $subClass->fromArray($value);
                         $this->{$fieldItem['name']} = $subClass;
@@ -28,7 +48,7 @@ abstract class BaseDto implements JsonSerializable
         }
     }
 
-    protected function isScalar(mixed $value): bool
+    protected function isScalarValue(mixed $value): bool
     {
         return is_scalar($value);
     }

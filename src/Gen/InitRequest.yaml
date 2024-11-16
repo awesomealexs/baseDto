@@ -10,11 +10,12 @@ properties:
     description: 'one-time (pseudo) random value in hex format, must be unique for each request'
   signature:
     type: string
-  test:
+  test1:
     type: object
     serialize: asd
     properties:
       value1:
         type: string
       value9:
+        serialize: asd123
         type: int

@@ -1,8 +1,10 @@
 {
   "user-account": 123,
   "nonce": "alex",
-  "test1": {
+  "asd": {
     "a": 1,
-    "bool": "bool"
+    "bool": "bool",
+    "value1": 5,
+    "asd123": 123
   }
 }

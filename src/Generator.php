@@ -4,76 +4,108 @@ namespace BaseDto;
 
 class Generator
 {
-    public function parse(string $file){
+    private function parseYaml(string $file): array
+    {
         return yaml_parse_file($file);
     }
 
-    public function generate(string $file){
-        $data = $this->parse($file);
-        preg_match('/.*\/(?<className>[^\.]*)\.yaml/', $file, $matches);
-        $destinationFilePath = preg_replace('/\.yaml/', '.php',$file);
-        $skipKeys = [
-            '$schema',
-            'namespace',
-            'properties'
-        ];
-        $blank = $this->blankClass();
-        $blank = preg_replace('/{{namespace}}/', $data['namespace'], $blank);
-        $blank = preg_replace('/{{class}}/', $matches['className'], $blank);
-        $gettersSetters = [];
-        $properties = [];
-        $serializeUsed = false;
-        foreach($data['properties'] as $key => $value){
-            if($this->isScalarType($value['type'])){
-                if(isset($value['serialize'])){
-                    $serializeUsed = true;
-                    $properties[] = preg_replace(['/{{type}}/', '/{{property}}/', '/{{serialize}}/'], [$value['type'], $key, $value['serialize']], $this->blankPropertySerialize());
-                } else {
-                    $properties[] = preg_replace(['/{{type}}/', '/{{property}}/'], [$value['type'], $key], $this->blankProperty());
-                }
-                $gettersSetters[] = preg_replace(['/{{UCkey}}/', '/{{key}}/', '/{{type}}/'], [ucfirst($key), $key, $value['type']], $this->blankGetterSetter());
-            } else {
-                $this->generateSubClass();
-            }
-        }
-
-        $temp = implode(PHP_EOL, $gettersSetters);
-        $temp2 = implode(PHP_EOL, $properties);
-
-        $blank = preg_replace('/{{gettersSetters}}/', $temp, $blank);
-        $blank = preg_replace('/{{properties}}/', $temp2, $blank);
-        $uses = '';
-        if($serializeUsed){
-            $uses = 'use BaseDto\Serialize;';
-        }
-        $blank = preg_replace('/{{uses}}/', $uses, $blank);
-
-        file_put_contents($destinationFilePath, $blank);
-    }
-
-    protected function generateSubClass()
+    public function generate(string $yamlFilePath): void
     {
-//        mkdir(, 0644);
+        if (!is_file($yamlFilePath)) {
+            throw new \RuntimeException("File {$yamlFilePath} not found");
+        }
+
+        $data = $this->parseYaml($yamlFilePath);
+        if (empty($data)) {
+            throw new \RuntimeException("Empty data from yaml file {$yamlFilePath}");
+        }
+
+        $namespace = $data['namespace'] ?? null;
+        if ($namespace === null) {
+            throw new \RuntimeException("Namespace in {$yamlFilePath} not specified");
+        }
+
+        $directoryPath = dirname($yamlFilePath);
+
+        preg_match('/.*\/(?<className>[^\.]*)\.yaml/', $yamlFilePath, $matches);
+        $className = $matches['className'];
+
+        $destinationFilePath = $directoryPath . DIRECTORY_SEPARATOR . $className . '.php';
+
+        $this->generateClass($data['properties'], $directoryPath, $namespace, $className, $destinationFilePath);
+
     }
 
-    protected function isScalarType(string $type){
+    protected function generateClass(array $properties, string $directoryPath, string $namespace, string $className, string $destinationFilePath): void
+    {
+        if(!is_dir($directoryPath)) {
+            mkdir($directoryPath, 0644);
+        }
+        $gettersSetters = [];
+        $serializeUsed = false;
+        $uses = [];
+        $fileProperties = [];
+        foreach ($properties as $propertyKey => $propertyData) {
+            $notScalar = false;
+            $type = $propertyData['type'];
+            if(!$this->isScalarType($propertyData['type'])) {
+                $subClassName = $propertyKey;
+                $subClassNamespace = sprintf('%s\%s', $namespace, $className);
+                $subClassDirectoryPath = $directoryPath.DIRECTORY_SEPARATOR.$className;
+                $subClassDestinationFilePath = $subClassDirectoryPath . DIRECTORY_SEPARATOR . $subClassName . '.php';
+                $uses[] = sprintf('use %s\%s;', $subClassNamespace, $subClassName);
+                $this->generateClass($propertyData['properties'], $subClassDirectoryPath, $subClassNamespace, $subClassName, $subClassDestinationFilePath);
+                $type = $subClassName;
+                $notScalar = true;
+            }
+            if (isset($propertyData['serialize'])) {
+                $serializeUsed = true;
+                $fileProperties[] = preg_replace(['/{{type}}/', '/{{property}}/', '/{{serialize}}/'], [$type, $propertyKey, $propertyData['serialize']], $this->getBlankPropertySerialize());
+            } else {
+                $fileProperties[] = preg_replace(['/{{type}}/', '/{{property}}/'], [$type, $propertyKey], $this->getBlankProperty());
+            }
+            $gettersSetters[] = preg_replace(['/{{UCkey}}/', '/{{key}}/', '/{{type}}/'], [ucfirst($propertyKey), $propertyKey, $type], $this->getBlankGetterSetter());
+        }
+
+
+        $blank = $this->getBlankClass();
+        $filled = preg_replace('/{{namespace}}/', $namespace, $blank);
+        $filled = preg_replace('/{{class}}/', $className, $filled);
+        $filled = preg_replace('/{{gettersSetters}}/', implode(PHP_EOL, $gettersSetters), $filled);
+        $filled = preg_replace('/{{properties}}/', implode(PHP_EOL, $fileProperties), $filled);
+
+        if ($serializeUsed) {
+            $uses[] = 'use BaseDto\Serialize;';
+        }
+        $filled = preg_replace('/{{uses}}/', implode(PHP_EOL, $uses), $filled);
+
+        file_put_contents($destinationFilePath, $filled);
+    }
+
+    protected function isScalarType(string $type): bool
+    {
         return in_array($type, ['string', 'int', 'float', 'bool']);
     }
 
-    protected function blankProperty(){
+    protected function getBlankProperty(): string
+    {
         return
             <<<PROPERTY
             protected ?{{type}} \${{property}} = null;
         PROPERTY;
     }
-    protected function blankPropertySerialize(){
+
+    protected function getBlankPropertySerialize(): string
+    {
         return
-            <<<PROPERTY
+            <<<PROPERTY_SERIALIZE
             #[Serialize('{{serialize}}')]
             protected ?{{type}} \${{property}} = null;
-        PROPERTY;
+        PROPERTY_SERIALIZE;
     }
-    protected function blankGetterSetter(){
+
+    protected function getBlankGetterSetter(): string
+    {
         return
             <<<GETSET
             public function get{{UCkey}}(): ?{{type}}
@@ -89,9 +121,11 @@ class Generator
             }
         GETSET;
     }
-    protected function blankClass(){
+
+    protected function getBlankClass(): string
+    {
         return
-            <<<BLANK
+            <<<BLANK_DTO
         <?php
         declare(strict_types=1);
         
@@ -105,6 +139,6 @@ class Generator
         {{properties}}
         {{gettersSetters}}
         }
-        BLANK;
+        BLANK_DTO;
     }
 }
